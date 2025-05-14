@@ -54,8 +54,8 @@ const ClassCard = ({ schedule, index, onDelete, onEdit }: ClassCardProps) => {
 };
 
 export function ScheduleView() {
-  const [selectedProgram, setSelectedProgram] = useState<number>(1);
-  const [selectedSemester, setSelectedSemester] = useState<number>(1);
+  const [selectedProgram, setSelectedProgram] = useState<number>(3);
+  const [selectedSemester, setSelectedSemester] = useState<number>(2);
   const [programFilter, setProgramFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
   
