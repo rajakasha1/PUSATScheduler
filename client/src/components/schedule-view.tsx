@@ -42,13 +42,15 @@ function getColorForIndex(index: number) {
 const ClassCard = ({ schedule, index, onDelete, onEdit }: ClassCardProps) => {
   const colorClass = getColorForIndex(index);
   
+  console.log("Rendering class card for:", schedule);
+  
   return (
     <div 
       className={`class-card ${colorClass} p-2 rounded-md border text-xs cursor-pointer`}
       onClick={() => onEdit && onEdit(schedule)}
     >
-      <div className="font-medium">{schedule.course.name}</div>
-      <div className="text-neutral-600">{schedule.teacher.name}</div>
+      <div className="font-medium">{schedule.course?.name || "Unknown Course"}</div>
+      <div className="text-neutral-600">{schedule.teacher?.name || "Unknown Teacher"}</div>
     </div>
   );
 };
@@ -67,7 +69,8 @@ export function ScheduleView() {
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ["/api/schedules", selectedProgram, selectedSemester],
     queryFn: async () => {
-      const response = await fetch(`/api/schedules?programId=${selectedProgram}&semester=${selectedSemester}`);
+      // Make sure we're explicitly passing program ID and semester as numbers
+      const response = await fetch(`/api/schedules?programId=${Number(selectedProgram)}&semester=${Number(selectedSemester)}`);
       if (!response.ok) {
         throw new Error("Failed to fetch schedules");
       }
@@ -75,6 +78,9 @@ export function ScheduleView() {
       console.log("Fetched schedules:", data);
       return data;
     },
+    // Ensure the data is always fresh when we change program or semester
+    refetchOnWindowFocus: false,
+    staleTime: 0
   });
   
   const handleProgramTabClick = (programId: number) => {
@@ -257,14 +263,14 @@ export function ScheduleView() {
                   )}
                   
                   {DAYS.map((day, dayIndex) => {
-                    const scheduleCell = scheduleMatrix[dayIndex][slotIndex];
-                    const schedule = scheduleCell?.schedule;
+                    // Use a more direct approach - don't rely on scheduleMatrix
+                    const directSchedule = getScheduleForSlot(day, slot.id);
                     
                     return (
                       <td key={`${day}-${slot.id}`} className="p-1 border-r border-neutral-200 last:border-r-0">
-                        {schedule && (
+                        {directSchedule && (
                           <ClassCard 
-                            schedule={schedule} 
+                            schedule={directSchedule} 
                             index={(dayIndex * TIME_SLOTS.length) + slotIndex}
                           />
                         )}
