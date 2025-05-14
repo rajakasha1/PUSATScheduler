@@ -46,11 +46,26 @@ const ClassCard = ({ schedule, index, onDelete, onEdit }: ClassCardProps) => {
   
   return (
     <div 
-      className={`class-card ${colorClass} p-2 rounded-md border text-xs cursor-pointer`}
+      className={`class-card ${colorClass} p-2 rounded-md border text-xs relative group`}
       onClick={() => onEdit && onEdit(schedule)}
     >
       <div className="font-medium">{schedule.course?.name || "Unknown Course"}</div>
       <div className="text-neutral-600">{schedule.teacher?.name || "Unknown Teacher"}</div>
+      
+      {/* Delete button that appears on hover */}
+      {onDelete && (
+        <button
+          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent triggering the card click
+            if (window.confirm(`Are you sure you want to remove ${schedule.course?.name} from the schedule?`)) {
+              onDelete(schedule.id);
+            }
+          }}
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 };
@@ -62,6 +77,7 @@ export function ScheduleView() {
   const [debugView, setDebugView] = useState<boolean>(true); // New debug view toggle
   const [programFilter, setProgramFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   
   const queryClient = useQueryClient();
   
@@ -82,6 +98,36 @@ export function ScheduleView() {
     refetchOnWindowFocus: false,
     staleTime: 0
   });
+  
+  // Function to handle deletion of a schedule
+  const handleDeleteSchedule = async (scheduleId: number) => {
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`/api/schedules/${scheduleId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete schedule');
+      }
+      
+      // Invalidate the schedules cache to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
+      
+      // Also invalidate the stats cache since counts will change
+      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      
+      // Also invalidate actions to refresh the recent actions list
+      queryClient.invalidateQueries({ queryKey: ['/api/actions'] });
+      
+      console.log('Schedule deleted successfully');
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      alert('Failed to delete schedule. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   
   const handleProgramTabClick = (programId: number) => {
     setSelectedProgram(programId);
@@ -217,13 +263,26 @@ export function ScheduleView() {
           ) : (
             <div className="space-y-4">
               {schedules.map((schedule: ScheduleWithDetails) => (
-                <div key={schedule.id} className="p-3 border rounded-md bg-blue-50">
+                <div key={schedule.id} className="p-3 border rounded-md bg-blue-50 relative group">
                   <div className="font-medium">{schedule.course.name}</div>
                   <div className="text-sm text-neutral-600">Teacher: {schedule.teacher.name}</div>
                   <div className="text-sm text-neutral-600">Day: {schedule.day.charAt(0).toUpperCase() + schedule.day.slice(1)}</div>
                   <div className="text-sm text-neutral-600">
                     Time: {TIME_SLOTS.find(s => s.id === schedule.timeSlot)?.start} - {TIME_SLOTS.find(s => s.id === schedule.timeSlot)?.end}
                   </div>
+                  
+                  {/* Delete button that appears on hover */}
+                  <button
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to remove ${schedule.course?.name} from the schedule?`)) {
+                        handleDeleteSchedule(schedule.id);
+                      }
+                    }}
+                    disabled={isDeleting}
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
@@ -266,6 +325,7 @@ export function ScheduleView() {
                           <ClassCard 
                             schedule={directSchedule} 
                             index={(dayIndex * TIME_SLOTS.length) + slotIndex}
+                            onDelete={handleDeleteSchedule}
                           />
                         )}
                       </td>
