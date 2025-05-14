@@ -102,8 +102,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getTeacherCount(): Promise<number> {
-    const result = await db.select({ count: db.sql`count(*)` }).from(teachers);
-    return Number(result[0]?.count || 0);
+    const results = await db.select().from(teachers);
+    return results.length;
   }
   
   // Course methods
@@ -122,8 +122,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getCourseCount(): Promise<number> {
-    const result = await db.select({ count: db.sql`count(*)` }).from(courses);
-    return Number(result[0]?.count || 0);
+    const results = await db.select().from(courses);
+    return results.length;
   }
   
   // Schedule methods
@@ -291,8 +291,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getScheduleCount(): Promise<number> {
-    const result = await db.select({ count: db.sql`count(*)` }).from(schedules);
-    return Number(result[0]?.count || 0);
+    const results = await db.select().from(schedules);
+    return results.length;
   }
   
   // Action methods
