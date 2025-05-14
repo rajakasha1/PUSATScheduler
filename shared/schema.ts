@@ -111,7 +111,7 @@ export const TIME_SLOTS = [
 ];
 
 // Days definition
-export const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "sunday"];
+export const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday"];
 
 // Programs definition
 export const PROGRAM_LIST = [
