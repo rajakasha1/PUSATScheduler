@@ -102,7 +102,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getTeacherCount(): Promise<number> {
-    const result = await db.select({ count: db.fn.count() }).from(teachers);
+    const result = await db.select({ count: db.sql`count(*)` }).from(teachers);
     return Number(result[0]?.count || 0);
   }
   
@@ -122,7 +122,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getCourseCount(): Promise<number> {
-    const result = await db.select({ count: db.fn.count() }).from(courses);
+    const result = await db.select({ count: db.sql`count(*)` }).from(courses);
     return Number(result[0]?.count || 0);
   }
   
@@ -291,7 +291,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getScheduleCount(): Promise<number> {
-    const result = await db.select({ count: db.fn.count() }).from(schedules);
+    const result = await db.select({ count: db.sql`count(*)` }).from(schedules);
     return Number(result[0]?.count || 0);
   }
   
