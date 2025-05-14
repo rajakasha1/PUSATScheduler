@@ -54,8 +54,10 @@ const ClassCard = ({ schedule, index, onDelete, onEdit }: ClassCardProps) => {
 };
 
 export function ScheduleView() {
+  // Let's deliberately set it to Program 3 (B.Tech in AI) and Semester 2 to see your courses
   const [selectedProgram, setSelectedProgram] = useState<number>(3);
   const [selectedSemester, setSelectedSemester] = useState<number>(2);
+  const [debugView, setDebugView] = useState<boolean>(true); // New debug view toggle
   const [programFilter, setProgramFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
   
@@ -69,7 +71,9 @@ export function ScheduleView() {
       if (!response.ok) {
         throw new Error("Failed to fetch schedules");
       }
-      return response.json();
+      const data = await response.json();
+      console.log("Fetched schedules:", data);
+      return data;
     },
   });
   
@@ -87,10 +91,15 @@ export function ScheduleView() {
   
   // Function to get schedule for a specific day and time slot
   const getScheduleForSlot = (day: string, timeSlot: number) => {
-    return schedules.find(
+    console.log(`Looking for schedule on ${day} at time slot ${timeSlot}`);
+    const foundSchedule = schedules.find(
       (schedule: ScheduleWithDetails) => 
         schedule.day === day && schedule.timeSlot === timeSlot
     );
+    if (foundSchedule) {
+      console.log(`Found schedule: `, foundSchedule);
+    }
+    return foundSchedule;
   };
   
   const scheduleMatrix = DAYS.map(day => {
@@ -149,6 +158,9 @@ export function ScheduleView() {
           <Button variant="ghost" size="icon" onClick={handlePrint}>
             <Printer className="h-4 w-4" />
           </Button>
+          <Button variant="outline" onClick={() => setDebugView(!debugView)}>
+            {debugView ? "Show Schedule Matrix" : "Show List View"}
+          </Button>
         </div>
       </div>
       
@@ -190,68 +202,91 @@ export function ScheduleView() {
         </div>
       </div>
       
-      <div className="overflow-x-auto rounded-lg border border-neutral-200">
-        <table className="min-w-full divide-y divide-neutral-200">
-          <thead className="bg-neutral-50">
-            <tr>
-              <th className="py-3 px-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[100px]">Time</th>
-              {DAYS.map(day => (
-                <th 
-                  key={day}
-                  className="py-3 px-4 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[130px] last:border-r-0"
-                >
-                  {day.charAt(0).toUpperCase() + day.slice(1)}
-                </th>
+      {debugView ? (
+        <div className="bg-white p-4 rounded-lg border border-neutral-200">
+          <h4 className="font-medium mb-4">Scheduled Classes for {PROGRAM_LIST.find(p => p.id === selectedProgram)?.name} - Semester {selectedSemester}</h4>
+          
+          {schedules.length === 0 ? (
+            <p className="text-neutral-500">No scheduled classes found for this program and semester.</p>
+          ) : (
+            <div className="space-y-4">
+              {schedules.map((schedule: ScheduleWithDetails) => (
+                <div key={schedule.id} className="p-3 border rounded-md bg-blue-50">
+                  <div className="font-medium">{schedule.course.name}</div>
+                  <div className="text-sm text-neutral-600">Teacher: {schedule.teacher.name}</div>
+                  <div className="text-sm text-neutral-600">Day: {schedule.day.charAt(0).toUpperCase() + schedule.day.slice(1)}</div>
+                  <div className="text-sm text-neutral-600">
+                    Time: {TIME_SLOTS.find(s => s.id === schedule.timeSlot)?.start} - {TIME_SLOTS.find(s => s.id === schedule.timeSlot)?.end}
+                  </div>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-neutral-200">
-            {/* Time slots */}
-            {TIME_SLOTS.map((slot, slotIndex) => (
-              <tr key={slot.id}>
-                <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
-                  {`${slot.start} - ${slot.end}`}
-                </td>
-                
-                {/* Break time row */}
-                {slot.id === 3 && slotIndex === 2 && (
-                  <>
-                    {DAYS.map((day, i) => (
-                      <td key={i} className="p-1 border-r border-neutral-200 last:border-r-0"></td>
-                    ))}
-                  </>
-                )}
-                
-                {DAYS.map((day, dayIndex) => {
-                  const scheduleCell = scheduleMatrix[dayIndex][slotIndex];
-                  const schedule = scheduleCell?.schedule;
-                  
-                  return (
-                    <td key={`${day}-${slot.id}`} className="p-1 border-r border-neutral-200 last:border-r-0">
-                      {schedule && (
-                        <ClassCard 
-                          schedule={schedule} 
-                          index={(dayIndex * TIME_SLOTS.length) + slotIndex}
-                        />
-                      )}
-                    </td>
-                  );
-                })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+          <table className="min-w-full divide-y divide-neutral-200">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="py-3 px-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[100px]">Time</th>
+                {DAYS.map(day => (
+                  <th 
+                    key={day}
+                    className="py-3 px-4 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[130px] last:border-r-0"
+                  >
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </th>
+                ))}
               </tr>
-            ))}
-            
-            {/* Break row */}
-            <tr className="break-slot">
-              <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
-                9:00 - 9:20
-              </td>
-              <td colSpan={6} className="text-center py-2 text-neutral-500 text-sm italic">
-                Break Time
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-neutral-200">
+              {/* Time slots */}
+              {TIME_SLOTS.map((slot, slotIndex) => (
+                <tr key={slot.id}>
+                  <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
+                    {`${slot.start} - ${slot.end}`}
+                  </td>
+                  
+                  {/* Break time row */}
+                  {slot.id === 3 && slotIndex === 2 && (
+                    <>
+                      {DAYS.map((day, i) => (
+                        <td key={i} className="p-1 border-r border-neutral-200 last:border-r-0"></td>
+                      ))}
+                    </>
+                  )}
+                  
+                  {DAYS.map((day, dayIndex) => {
+                    const scheduleCell = scheduleMatrix[dayIndex][slotIndex];
+                    const schedule = scheduleCell?.schedule;
+                    
+                    return (
+                      <td key={`${day}-${slot.id}`} className="p-1 border-r border-neutral-200 last:border-r-0">
+                        {schedule && (
+                          <ClassCard 
+                            schedule={schedule} 
+                            index={(dayIndex * TIME_SLOTS.length) + slotIndex}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              
+              {/* Break row */}
+              <tr className="break-slot">
+                <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
+                  9:00 - 9:20
+                </td>
+                <td colSpan={6} className="text-center py-2 text-neutral-500 text-sm italic">
+                  Break Time
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
