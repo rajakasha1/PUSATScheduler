@@ -7,6 +7,8 @@ import {
   actions, type Action, type InsertAction,
   PROGRAM_LIST
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -52,177 +54,164 @@ export interface IStorage {
   initializeDefaultData(): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private programs: Map<number, Program>;
-  private teachers: Map<number, Teacher>;
-  private courses: Map<number, Course>;
-  private schedules: Map<number, Schedule>;
-  private actions: Map<number, Action>;
-  
-  private userIdCounter: number;
-  private programIdCounter: number;
-  private teacherIdCounter: number;
-  private courseIdCounter: number;
-  private scheduleIdCounter: number;
-  private actionIdCounter: number;
-
-  constructor() {
-    this.users = new Map();
-    this.programs = new Map();
-    this.teachers = new Map();
-    this.courses = new Map();
-    this.schedules = new Map();
-    this.actions = new Map();
-    
-    this.userIdCounter = 1;
-    this.programIdCounter = 1;
-    this.teacherIdCounter = 1;
-    this.courseIdCounter = 1;
-    this.scheduleIdCounter = 1;
-    this.actionIdCounter = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
   
   // Program methods
   async getAllPrograms(): Promise<Program[]> {
-    return Array.from(this.programs.values());
+    return await db.select().from(programs);
   }
   
   async getProgram(id: number): Promise<Program | undefined> {
-    return this.programs.get(id);
+    const [program] = await db.select().from(programs).where(eq(programs.id, id));
+    return program || undefined;
   }
   
   async createProgram(insertProgram: InsertProgram): Promise<Program> {
-    const id = this.programIdCounter++;
-    const program: Program = { ...insertProgram, id };
-    this.programs.set(id, program);
+    const [program] = await db.insert(programs).values(insertProgram).returning();
     return program;
   }
   
   // Teacher methods
   async getAllTeachers(): Promise<Teacher[]> {
-    return Array.from(this.teachers.values());
+    return await db.select().from(teachers);
   }
   
   async getTeacher(id: number): Promise<Teacher | undefined> {
-    return this.teachers.get(id);
+    const [teacher] = await db.select().from(teachers).where(eq(teachers.id, id));
+    return teacher || undefined;
   }
   
   async createTeacher(insertTeacher: InsertTeacher): Promise<Teacher> {
-    const id = this.teacherIdCounter++;
-    const teacher: Teacher = { ...insertTeacher, id };
-    this.teachers.set(id, teacher);
+    const [teacher] = await db.insert(teachers).values(insertTeacher).returning();
     return teacher;
   }
   
   async getTeacherCount(): Promise<number> {
-    return this.teachers.size;
+    const result = await db.select({ count: db.fn.count() }).from(teachers);
+    return Number(result[0]?.count || 0);
   }
   
   // Course methods
   async getAllCourses(): Promise<Course[]> {
-    return Array.from(this.courses.values());
+    return await db.select().from(courses);
   }
   
   async getCourse(id: number): Promise<Course | undefined> {
-    return this.courses.get(id);
+    const [course] = await db.select().from(courses).where(eq(courses.id, id));
+    return course || undefined;
   }
   
   async createCourse(insertCourse: InsertCourse): Promise<Course> {
-    const id = this.courseIdCounter++;
-    const course: Course = { ...insertCourse, id };
-    this.courses.set(id, course);
+    const [course] = await db.insert(courses).values(insertCourse).returning();
     return course;
   }
   
   async getCourseCount(): Promise<number> {
-    return this.courses.size;
+    const result = await db.select({ count: db.fn.count() }).from(courses);
+    return Number(result[0]?.count || 0);
   }
   
   // Schedule methods
   async getAllSchedules(): Promise<Schedule[]> {
-    return Array.from(this.schedules.values());
+    return await db.select().from(schedules);
   }
   
   async getAllSchedulesWithDetails(): Promise<ScheduleWithDetails[]> {
-    return await Promise.all(
-      Array.from(this.schedules.values()).map(async (schedule) => {
-        const program = await this.getProgram(schedule.programId);
-        const course = await this.getCourse(schedule.courseId);
-        const teacher = await this.getTeacher(schedule.teacherId);
-        
-        return {
+    const allSchedules = await db.select().from(schedules);
+    const result: ScheduleWithDetails[] = [];
+    
+    for (const schedule of allSchedules) {
+      const program = await this.getProgram(schedule.programId);
+      const course = await this.getCourse(schedule.courseId);
+      const teacher = await this.getTeacher(schedule.teacherId);
+      
+      if (program && course && teacher) {
+        result.push({
           ...schedule,
-          program: program!,
-          course: course!,
-          teacher: teacher!,
-        };
-      })
-    );
+          program,
+          course,
+          teacher
+        });
+      }
+    }
+    
+    return result;
   }
   
   async getSchedulesByProgram(programId: number): Promise<ScheduleWithDetails[]> {
-    const schedules = Array.from(this.schedules.values()).filter(
-      (schedule) => schedule.programId === programId
-    );
+    const filteredSchedules = await db.select()
+      .from(schedules)
+      .where(eq(schedules.programId, programId));
     
-    return await Promise.all(
-      schedules.map(async (schedule) => {
-        const program = await this.getProgram(schedule.programId);
-        const course = await this.getCourse(schedule.courseId);
-        const teacher = await this.getTeacher(schedule.teacherId);
-        
-        return {
+    const result: ScheduleWithDetails[] = [];
+    
+    for (const schedule of filteredSchedules) {
+      const program = await this.getProgram(schedule.programId);
+      const course = await this.getCourse(schedule.courseId);
+      const teacher = await this.getTeacher(schedule.teacherId);
+      
+      if (program && course && teacher) {
+        result.push({
           ...schedule,
-          program: program!,
-          course: course!,
-          teacher: teacher!,
-        };
-      })
-    );
+          program,
+          course,
+          teacher
+        });
+      }
+    }
+    
+    return result;
   }
   
   async getSchedulesByProgramAndSemester(programId: number, semester: number): Promise<ScheduleWithDetails[]> {
-    const schedules = Array.from(this.schedules.values()).filter(
-      (schedule) => schedule.programId === programId && schedule.semester === semester
-    );
+    const filteredSchedules = await db.select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.programId, programId),
+          eq(schedules.semester, semester)
+        )
+      );
     
-    return await Promise.all(
-      schedules.map(async (schedule) => {
-        const program = await this.getProgram(schedule.programId);
-        const course = await this.getCourse(schedule.courseId);
-        const teacher = await this.getTeacher(schedule.teacherId);
-        
-        return {
+    const result: ScheduleWithDetails[] = [];
+    
+    for (const schedule of filteredSchedules) {
+      const program = await this.getProgram(schedule.programId);
+      const course = await this.getCourse(schedule.courseId);
+      const teacher = await this.getTeacher(schedule.teacherId);
+      
+      if (program && course && teacher) {
+        result.push({
           ...schedule,
-          program: program!,
-          course: course!,
-          teacher: teacher!,
-        };
-      })
-    );
+          program,
+          course,
+          teacher
+        });
+      }
+    }
+    
+    return result;
   }
   
   async getScheduleWithDetails(id: number): Promise<ScheduleWithDetails | undefined> {
-    const schedule = this.schedules.get(id);
+    const [schedule] = await db.select()
+      .from(schedules)
+      .where(eq(schedules.id, id));
     
     if (!schedule) {
       return undefined;
@@ -240,40 +229,46 @@ export class MemStorage implements IStorage {
       ...schedule,
       program,
       course,
-      teacher,
+      teacher
     };
   }
   
   async createSchedule(insertSchedule: InsertSchedule): Promise<Schedule> {
-    const id = this.scheduleIdCounter++;
-    const schedule: Schedule = { ...insertSchedule, id };
-    this.schedules.set(id, schedule);
+    const [schedule] = await db.insert(schedules)
+      .values(insertSchedule)
+      .returning();
     return schedule;
   }
   
   async updateSchedule(id: number, updateSchedule: InsertSchedule): Promise<Schedule> {
-    const existingSchedule = this.schedules.get(id);
+    const [updatedSchedule] = await db.update(schedules)
+      .set(updateSchedule)
+      .where(eq(schedules.id, id))
+      .returning();
     
-    if (!existingSchedule) {
+    if (!updatedSchedule) {
       throw new Error(`Schedule with ID ${id} not found`);
     }
     
-    const updatedSchedule: Schedule = { ...updateSchedule, id };
-    this.schedules.set(id, updatedSchedule);
     return updatedSchedule;
   }
   
   async deleteSchedule(id: number): Promise<void> {
-    this.schedules.delete(id);
+    await db.delete(schedules).where(eq(schedules.id, id));
   }
   
   async checkForTeacherConflict(teacherId: number, day: string, timeSlot: number): Promise<boolean> {
-    return Array.from(this.schedules.values()).some(
-      (schedule) => 
-        schedule.teacherId === teacherId && 
-        schedule.day === day && 
-        schedule.timeSlot === timeSlot
-    );
+    const conflicts = await db.select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.teacherId, teacherId),
+          eq(schedules.day, day),
+          eq(schedules.timeSlot, timeSlot)
+        )
+      );
+    
+    return conflicts.length > 0;
   }
   
   async checkForTeacherConflictExcluding(
@@ -282,35 +277,47 @@ export class MemStorage implements IStorage {
     timeSlot: number, 
     excludeId: number
   ): Promise<boolean> {
-    return Array.from(this.schedules.values()).some(
-      (schedule) => 
-        schedule.id !== excludeId &&
-        schedule.teacherId === teacherId && 
-        schedule.day === day && 
-        schedule.timeSlot === timeSlot
-    );
+    const conflicts = await db.select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.teacherId, teacherId),
+          eq(schedules.day, day),
+          eq(schedules.timeSlot, timeSlot)
+        )
+      );
+    
+    return conflicts.some(schedule => schedule.id !== excludeId);
   }
   
   async getScheduleCount(): Promise<number> {
-    return this.schedules.size;
+    const result = await db.select({ count: db.fn.count() }).from(schedules);
+    return Number(result[0]?.count || 0);
   }
   
   // Action methods
   async createAction(insertAction: InsertAction): Promise<Action> {
-    const id = this.actionIdCounter++;
-    const action: Action = { ...insertAction, id };
-    this.actions.set(id, action);
+    const [action] = await db.insert(actions)
+      .values(insertAction)
+      .returning();
     return action;
   }
   
   async getRecentActions(limit: number): Promise<Action[]> {
-    return Array.from(this.actions.values())
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit);
+    return await db.select()
+      .from(actions)
+      .orderBy(desc(actions.timestamp))
+      .limit(limit);
   }
   
   // Initialize with default data
   async initializeDefaultData(): Promise<void> {
+    // Check if we already have data
+    const existingPrograms = await db.select().from(programs);
+    if (existingPrograms.length > 0) {
+      return; // Data already exists, no need to initialize
+    }
+
     // Add default programs
     for (const program of PROGRAM_LIST) {
       await this.createProgram({ name: program.name });
@@ -396,4 +403,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
