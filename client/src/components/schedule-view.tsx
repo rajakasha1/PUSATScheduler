@@ -234,36 +234,30 @@ export function ScheduleView() {
           <table className="min-w-full divide-y divide-neutral-200">
             <thead className="bg-neutral-50">
               <tr>
-                <th className="py-3 px-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[100px]">Time</th>
-                {DAYS.map(day => (
+                <th className="py-3 px-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[100px]">Day / Time</th>
+                {TIME_SLOTS.map(slot => (
                   <th 
-                    key={day}
+                    key={slot.id}
                     className="py-3 px-4 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[130px] last:border-r-0"
                   >
-                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                    {`${slot.start} - ${slot.end}`}
                   </th>
                 ))}
+                <th className="py-3 px-4 text-center text-xs font-medium text-neutral-500 uppercase tracking-wider border-r border-neutral-200 min-w-[130px] last:border-r-0">
+                  9:00 - 9:20
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-neutral-200">
-              {/* Time slots */}
-              {TIME_SLOTS.map((slot, slotIndex) => (
-                <tr key={slot.id}>
+              {/* Day rows */}
+              {DAYS.map((day, dayIndex) => (
+                <tr key={day}>
                   <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
-                    {`${slot.start} - ${slot.end}`}
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
                   </td>
                   
-                  {/* Break time row */}
-                  {slot.id === 3 && slotIndex === 2 && (
-                    <>
-                      {DAYS.map((day, i) => (
-                        <td key={i} className="p-1 border-r border-neutral-200 last:border-r-0"></td>
-                      ))}
-                    </>
-                  )}
-                  
-                  {DAYS.map((day, dayIndex) => {
-                    // Use a more direct approach - don't rely on scheduleMatrix
+                  {/* Time slots for this day */}
+                  {TIME_SLOTS.map((slot, slotIndex) => {
                     const directSchedule = getScheduleForSlot(day, slot.id);
                     
                     return (
@@ -277,18 +271,13 @@ export function ScheduleView() {
                       </td>
                     );
                   })}
+                  
+                  {/* Break column */}
+                  <td className="text-center py-2 text-neutral-500 text-sm italic border-r border-neutral-200 last:border-r-0">
+                    Break
+                  </td>
                 </tr>
               ))}
-              
-              {/* Break row */}
-              <tr className="break-slot">
-                <td className="py-2 px-4 text-sm font-medium text-neutral-800 border-r border-neutral-200">
-                  9:00 - 9:20
-                </td>
-                <td colSpan={6} className="text-center py-2 text-neutral-500 text-sm italic">
-                  Break Time
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
